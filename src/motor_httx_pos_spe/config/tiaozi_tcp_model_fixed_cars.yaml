@@ -1,0 +1,18 @@
+huatai_control_node_tcp_model_fixed_cars:
+  ros__parameters:
+    car1_pose_source: "mocap"
+    car2_pose_source: "mocap"
+    car3_pose_source: "mocap"
+
+    car1_config_position: [11085.812500, -7507.874512, 474.028961]
+    car1_config_rpy_deg: [0.763543, 1.020445, -91.008888]
+
+    car2_config_position: [11716.496094, -7440.223145, 539.728455]
+    car2_config_rpy_deg: [0.841753, 0.501723, -86.859772]
+
+    car3_config_position: [12040.344727, -6252.327148, 502.310455]
+    car3_config_rpy_deg: [0.956657, 0.468350, -92.226730]
+
+    tcp_bias_car1: [-143.03, -131.53, 686.69]
+    tcp_bias_car2: [-131.37, -129.56, 674.48]
+    tcp_bias_car3: [-136.64, -139.54, 672.39]

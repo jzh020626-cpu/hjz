@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>motor_httx_pos_spe</name>
+  <version>0.0.0</version>
+  <description>Minimal package for tiaozi_tcp_model_fixed_cars</description>
+  <maintainer email="zdp@todo.todo">zdp</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>ament_index_cpp</depend>
+  <depend>geometry_msgs</depend>
+  <depend>base_interfaces_demo</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

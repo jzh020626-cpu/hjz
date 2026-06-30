@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>华台协同调姿控制</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1923;color:#c8d6e5;min-height:100vh}
+.header{background:#1a2a3a;padding:12px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #2c3e50}
+.header h1{font-size:20px;color:#54a0ff;letter-spacing:1px}
+.status-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px}
+.status-dot.online{background:#2ecc71;box-shadow:0 0 8px #2ecc71}
+.status-dot.offline{background:#e74c3c;box-shadow:0 0 8px #e74c3c}
+.main{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;max-width:1200px;margin:0 auto}
+.card{background:#1a2a3a;border-radius:8px;padding:16px;border:1px solid #2c3e50}
+.card h2{font-size:14px;color:#54a0ff;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
+.pose-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pose-item{background:#0f1923;padding:10px 14px;border-radius:6px}
+.pose-item .label{font-size:11px;color:#8395a7;margin-bottom:2px}
+.pose-item .value{font-size:20px;font-weight:700;color:#feca57}
+.pose-item .unit{font-size:11px;color:#8395a7;margin-left:4px}
+.motor-row{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#0f1923;border-radius:6px;margin-bottom:6px}
+.motor-row .name{font-weight:600;min-width:50px}
+.motor-row .pos{font-size:13px;color:#8395a7}
+.motor-indicator{width:12px;height:12px;border-radius:50%}
+.motor-indicator.on{background:#2ecc71;box-shadow:0 0 6px #2ecc71}
+.motor-indicator.off{background:#e74c3c}
+.jog-group{margin-bottom:12px}
+.jog-group .axis-label{font-weight:600;color:#54a0ff;margin-bottom:4px}
+.jog-btns{display:flex;gap:4px;flex-wrap:wrap}
+.jog-btn{padding:6px 10px;border:1px solid #2c3e50;border-radius:4px;background:#0f1923;color:#c8d6e5;cursor:pointer;font-size:12px;transition:all .15s}
+.jog-btn:hover{background:#2c3e50;border-color:#54a0ff}
+.jog-btn.active{background:#54a0ff;color:#fff}
+.custom-cmd{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.custom-cmd input{width:62px;padding:6px 4px;background:#0f1923;border:1px solid #2c3e50;border-radius:4px;color:#c8d6e5;font-size:13px;text-align:center}
+.custom-cmd input:focus{outline:none;border-color:#54a0ff}
+.custom-cmd .label{font-size:10px;color:#8395a7;text-align:center}
+.btn{padding:8px 18px;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s}
+.btn-primary{background:#54a0ff;color:#fff}
+.btn-primary:hover{background:#2e86de}
+.btn-danger{background:#e74c3c;color:#fff}
+.btn-danger:hover{background:#c0392b}
+.btn-success{background:#2ecc71;color:#fff}
+.btn-success:hover{background:#27ae60}
+.btn-warn{background:#f39c12;color:#fff}
+.btn-warn:hover{background:#e67e22}
+.full-width{grid-column:1/-1}
+.footer{padding:8px 16px;text-align:center;font-size:11px;color:#576574}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>&#x23F1; 华台协同调姿控制</h1>
+  <div>
+    <span id="conn-dot" class="status-dot offline"></span>
+    <span id="conn-text" style="font-size:13px">未连接</span>
+    <span style="margin-left:16px;font-size:12px;color:#8395a7" id="timestamp"></span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- 物体位姿 -->
+  <div class="card">
+    <h2>&#x1F4CD; 物体位姿 [OptiTrack Rigid8]</h2>
+    <div class="pose-grid">
+      <div class="pose-item"><div class="label">X (mm)</div><div class="value" id="obj-x">--</div></div>
+      <div class="pose-item"><div class="label">Roll (deg)</div><div class="value" id="obj-roll">--</div></div>
+      <div class="pose-item"><div class="label">Y (mm)</div><div class="value" id="obj-y">--</div></div>
+      <div class="pose-item"><div class="label">Pitch (deg)</div><div class="value" id="obj-pitch">--</div></div>
+      <div class="pose-item"><div class="label">Z (mm)</div><div class="value" id="obj-z">--</div></div>
+      <div class="pose-item"><div class="label">Yaw (deg)</div><div class="value" id="obj-yaw">--</div></div>
+    </div>
+  </div>
+
+  <!-- 滑台状态 -->
+  <div class="card">
+    <h2>&#x2699; 滑台状态</h2>
+    <div id="motor-status"></div>
+    <div style="margin-top:8px;font-size:11px;color:#8395a7" id="rigid-status"></div>
+  </div>
+
+  <!-- Jog 控制 - 平移 -->
+  <div class="card">
+    <h2>&#x2195; Jog 平移 (mm)</h2>
+    <div class="jog-group">
+      <div class="axis-label">X</div>
+      <div class="jog-btns">
+        <button class="jog-btn" onclick="jog('dx',-50)">-50</button>
+        <button class="jog-btn" onclick="jog('dx',-10)">-10</button>
+        <button class="jog-btn" onclick="jog('dx',-1)">-1</button>
+        <button class="jog-btn" onclick="jog('dx',0.5)">+0.5</button>
+        <button class="jog-btn" onclick="jog('dx',1)">+1</button>
+        <button class="jog-btn" onclick="jog('dx',10)">+10</button>
+        <button class="jog-btn" onclick="jog('dx',50)">+50</button>
+      </div>
+    </div>
+    <div class="jog-group">
+      <div class="axis-label">Y</div>
+      <div class="jog-btns">
+        <button class="jog-btn" onclick="jog('dy',-50)">-50</button>
+        <button class="jog-btn" onclick="jog('dy',-10)">-10</button>
+        <button class="jog-btn" onclick="jog('dy',-1)">-1</button>
+        <button class="jog-btn" onclick="jog('dy',0.5)">+0.5</button>
+        <button class="jog-btn" onclick="jog('dy',1)">+1</button>
+        <button class="jog-btn" onclick="jog('dy',10)">+10</button>
+        <button class="jog-btn" onclick="jog('dy',50)">+50</button>
+      </div>
+    </div>
+    <div class="jog-group">
+      <div class="axis-label">Z</div>
+      <div class="jog-btns">
+        <button class="jog-btn" onclick="jog('dz',-50)">-50</button>
+        <button class="jog-btn" onclick="jog('dz',-10)">-10</button>
+        <button class="jog-btn" onclick="jog('dz',-1)">-1</button>
+        <button class="jog-btn" onclick="jog('dz',0.5)">+0.5</button>
+        <button class="jog-btn" onclick="jog('dz',1)">+1</button>
+        <button class="jog-btn" onclick="jog('dz',10)">+10</button>
+        <button class="jog-btn" onclick="jog('dz',50)">+50</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Jog 控制 - 旋转 -->
+  <div class="card">
+    <h2>&#x21BB; Jog 旋转 (deg)</h2>
+    <div class="jog-group">
+      <div class="axis-label">Roll (Rx)</div>
+      <div class="jog-btns">
+        <button class="jog-btn" onclick="jog('rx',-0.5)">-0.5</button>
+        <button class="jog-btn" onclick="jog('rx',-0.1)">-0.1</button>
+        <button class="jog-btn" onclick="jog('rx',0.1)">+0.1</button>
+        <button class="jog-btn" onclick="jog('rx',0.5)">+0.5</button>
+      </div>
+    </div>
+    <div class="jog-group">
+      <div class="axis-label">Pitch (Ry)</div>
+      <div class="jog-btns">
+        <button class="jog-btn" onclick="jog('ry',-0.5)">-0.5</button>
+        <button class="jog-btn" onclick="jog('ry',-0.1)">-0.1</button>
+        <button class="jog-btn" onclick="jog('ry',0.1)">+0.1</button>
+        <button class="jog-btn" onclick="jog('ry',0.5)">+0.5</button>
+      </div>
+    </div>
+    <div class="jog-group">
+      <div class="axis-label">Yaw (Rz)</div>
+      <div class="jog-btns">
+        <button class="jog-btn" onclick="jog('rz',-0.5)">-0.5</button>
+        <button class="jog-btn" onclick="jog('rz',-0.1)">-0.1</button>
+        <button class="jog-btn" onclick="jog('rz',0.1)">+0.1</button>
+        <button class="jog-btn" onclick="jog('rz',0.5)">+0.5</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 自定义指令 + 预设 -->
+  <div class="card full-width">
+    <h2>&#x1F3AE; 自定义指令 & 预设序列</h2>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+      <div class="custom-cmd">
+        <div><div class="label">dX</div><input id="in-dx" value="0"></div>
+        <div><div class="label">dY</div><input id="in-dy" value="0"></div>
+        <div><div class="label">dZ</div><input id="in-dz" value="0"></div>
+        <div><div class="label">dRx</div><input id="in-rx" value="0"></div>
+        <div><div class="label">dRy</div><input id="in-ry" value="0"></div>
+        <div><div class="label">dRz</div><input id="in-rz" value="0"></div>
+        <div><div class="label">Time(s)</div><input id="in-time" value="3.0"></div>
+        <button class="btn btn-primary" onclick="sendCustom()" style="height:36px;margin-top:10px">执行</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+        <button class="btn btn-success" onclick="sendPreset()">&#x25B6; 执行预设序列</button>
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:#8395a7">所有位移基于 OptiTrack 动捕当前位姿的相对增量</div>
+  </div>
+
+</div>
+
+<div class="footer">华台协同调姿控制 v2.0 | OptiTrack + ROS 2 | Web UI</div>
+
+<script>
+const API = '/api';
+let busy = false;
+
+// 轮询状态
+async function poll() {
+  try {
+    const r = await fetch(API + '/status');
+    const s = await r.json();
+    updateUI(s);
+  } catch(e) {}
+}
+
+function updateUI(s) {
+  // 连接状态
+  const dot = document.getElementById('conn-dot');
+  const txt = document.getElementById('conn-text');
+  if (s.connected) {
+    dot.className = 'status-dot online';
+    txt.textContent = '已连接';
+  } else {
+    dot.className = 'status-dot offline';
+    txt.textContent = '未连接';
+  }
+  document.getElementById('timestamp').textContent = s.timestamp || '';
+
+  // 物体位姿
+  document.getElementById('obj-x').textContent = s.obj_x?.toFixed(2) || '--';
+  document.getElementById('obj-y').textContent = s.obj_y?.toFixed(2) || '--';
+  document.getElementById('obj-z').textContent = s.obj_z?.toFixed(2) || '--';
+  document.getElementById('obj-roll').textContent = s.obj_roll?.toFixed(2) || '--';
+  document.getElementById('obj-pitch').textContent = s.obj_pitch?.toFixed(2) || '--';
+  document.getElementById('obj-yaw').textContent = s.obj_yaw?.toFixed(2) || '--';
+
+  // 滑台状态
+  let html = '';
+  for (let i = 0; i < 3; i++) {
+    const ready = s.motor_ready?.[i] || false;
+    const x = s.motor_x?.[i]?.toFixed(2) || '--';
+    const y = s.motor_y?.[i]?.toFixed(2) || '--';
+    const z = s.motor_z?.[i]?.toFixed(2) || '--';
+    html += `<div class="motor-row">
+      <span class="name">滑台 ${i+1}</span>
+      <span class="motor-indicator ${ready?'on':'off'}"></span>
+      <span style="font-size:12px;margin-left:8px;color:${ready?'#2ecc71':'#e74c3c'}">${ready?'ON':'OFF'}</span>
+      <span class="pos">X:${x} Y:${y} Z:${z} mm</span>
+    </div>`;
+  }
+  document.getElementById('motor-status').innerHTML = html;
+
+  // 刚体状态
+  const rigidNames = ['Rigid17(Car1)', 'Rigid14(Car2)', 'Rigid15(Car3)', 'Rigid8(Obj)'];
+  let rigidHtml = '动捕: ';
+  if (s.poses_ready) {
+    for (let i = 0; i < 4; i++) {
+      const ok = s.poses_ready[i];
+      rigidHtml += `<span style="color:${ok?'#2ecc71':'#e74c3c'}">${rigidNames[i]}:${ok?'OK':'NO'}</span> `;
+    }
+  }
+  document.getElementById('rigid-status').innerHTML = rigidHtml;
+
+  // 忙碌状态
+  busy = s.state === 'moving';
+}
+
+// Jog 按钮
+function jog(axis, val) {
+  const params = {dx:0,dy:0,dz:0,rx:0,ry:0,rz:0,time:2.0};
+  params[axis] = val;
+  sendCmd(params);
+}
+
+// 自定义指令
+function sendCustom() {
+  const params = {
+    dx: parseFloat(document.getElementById('in-dx').value) || 0,
+    dy: parseFloat(document.getElementById('in-dy').value) || 0,
+    dz: parseFloat(document.getElementById('in-dz').value) || 0,
+    rx: parseFloat(document.getElementById('in-rx').value) || 0,
+    ry: parseFloat(document.getElementById('in-ry').value) || 0,
+    rz: parseFloat(document.getElementById('in-rz').value) || 0,
+    time: parseFloat(document.getElementById('in-time').value) || 3.0,
+  };
+  sendCmd(params);
+}
+
+// 发送指令
+async function sendCmd(params) {
+  if (busy) { alert('滑台运动中，请稍候...'); return; }
+  try {
+    const r = await fetch(API + '/command', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(params),
+    });
+    const data = await r.json();
+    if (!data.ok) alert('指令发送失败: ' + (data.error || ''));
+  } catch(e) {
+    alert('网络错误: ' + e.message);
+  }
+}
+
+// 预设序列
+async function sendPreset() {
+  if (busy) { alert('滑台运动中，请稍候...'); return; }
+  if (!confirm('确认执行预设指令序列 (11条)?')) return;
+  try {
+    const r = await fetch(API + '/command', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({preset: true}),
+    });
+    const data = await r.json();
+    if (!data.ok) alert('预设执行失败');
+  } catch(e) {
+    alert('网络错误: ' + e.message);
+  }
+}
+
+// 键盘快捷键
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  const step = e.shiftKey ? 10 : 1;
+  const keys = {
+    'ArrowRight': ['dx', step], 'ArrowLeft': ['dx', -step],
+    'ArrowUp': ['dy', step], 'ArrowDown': ['dy', -step],
+    'w': ['dz', step], 's': ['dz', -step],
+  };
+  const k = keys[e.key];
+  if (k) { jog(k[0], k[1]); e.preventDefault(); }
+});
+
+// 启动轮询
+setInterval(poll, 200);
+poll();
+</script>
+</body>
+</html>
